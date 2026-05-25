@@ -7,17 +7,12 @@ typedef bool (*CheckCanEnter_fn)();
 typedef void (*OpenTeamPage_fn)(bool);
 
 void __fastcall HookOpenTeam() {
-    if (g_config.removeTeamAnim && g_CheckCanEnterAddr && g_OpenTeamPageAddr) {
+    if (g_config.removeTeamAnim && g_OpenTeamPageAddr) {
         __try {
-            auto checkCanEnter = (CheckCanEnter_fn)g_CheckCanEnterAddr;
             auto openTeamPage = (OpenTeamPage_fn)g_OpenTeamPageAddr;
-            bool canEnter = false;
-            __try { canEnter = checkCanEnter(); } __except(EXCEPTION_EXECUTE_HANDLER) { canEnter = false; }
-            if (canEnter) {
-                __try { openTeamPage(false); } __except(EXCEPTION_EXECUTE_HANDLER) {}
-                return;
-            }
+            openTeamPage(false);
         } __except(EXCEPTION_EXECUTE_HANDLER) {}
+        return;
     }
     if (g_oOpenTeam) g_oOpenTeam();
 }
