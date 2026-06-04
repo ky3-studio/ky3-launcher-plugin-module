@@ -65,14 +65,9 @@ namespace Signatures {
     };
 
     static const char* EventCamera[] = {
-        "41 57 41 56 56 57 55 53 48 83 EC ? 48 89 D7 49 89 CE 80 3D ? ? ? ? 00 0F 85 ? ? ? ? 80 3D ? ? ? ? 00",
-        "41 57 41 56 56 57 55 53 48 83 EC ? 48 89 D7 49 89 CE 80 3D",
-        nullptr
-    };
-
-    static const char* BurstAnimDispatch[] = {
-        "56 57 53 48 83 EC 40 48 89 D7 48 89 CB 80 3D ? ? ? ? 00 0F 85 ? ? ? ? 80 3D ? ? ? ? 00",
-        "56 57 53 48 83 EC 40 48 89 D7 48 89 CB 80 3D",
+        "41 57 41 56 56 57 55 53 48 83 EC ? 48 89 D7 48 89 CE 80 3D ? ? ? ? 00 0F 85 ? ? ? ? 48 89 F1 E8 ? ? ? ? 84 C0 0F 85",
+        "41 57 41 56 56 57 55 53 48 83 EC ? 48 89 D7 48 89 CE 80 3D ? ? ? ? 00 0F 85 ? ? ? ? 80 3D ? ? ? ? 00",
+        "41 57 41 56 56 57 55 53 48 83 EC ? 48 89 D7 48 89 CE 80 3D",
         nullptr
     };
 
@@ -147,6 +142,11 @@ namespace Signatures {
     static const char* MobileUI[] = {
         "E8 ? ? ? ? 48 8B 05 ? ? ? ? 48 8B 90 ? ? ? ? 48 85 D2 0F 84 ? ? ? ? 80 3D ? ? ? ? ? 0F 85 ? ? ? ? C6 42 ? ? 48 8B 90",
         "E8 ? ? ? ? 48 8B 05 ? ? ? ? 48 8B 90 ? ? ? ? 48 85 D2 0F 84 ? ? ? ? 80 3D",
+        nullptr
+    };
+
+    static const char* NoGrass[] = {
+        "40 53 48 83 EC 20 84 C9 0F 95 C3 E8 ? ? ? ? 88 98 18 01 00 00",
         nullptr
     };
 

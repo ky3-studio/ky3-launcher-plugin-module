@@ -15,31 +15,24 @@ void DoCraftLogic() {
     } __except(EXCEPTION_EXECUTE_HANDLER) {}
 }
 
-void TriggerCraftDirect() {
-    if (!g_FindStringAddr || !g_CraftPartnerAddr) return;
-
-    typedef __int64(*FindString_t)(const char*);
-    typedef __int64(*FindStringIl2Cpp_t)(void*);
-    typedef void(*CraftPartner_t)(__int64, __int64, __int64, __int64, __int64);
-
-    FindString_t findString = (FindString_t)g_FindStringAddr;
-    FindStringIl2Cpp_t findStringIl2Cpp = (FindStringIl2Cpp_t)g_FindStringAddr;
-    CraftPartner_t craftPartner = (CraftPartner_t)g_CraftPartnerAddr;
-
-    __try {
-        __int64 pageObj = findString("SynthesisPage");
-
-        if (pageObj) {
-            craftPartner(pageObj, 0, 0, 0, 0);
-            g_craftPageOpen = true;
-        }
-    } __except(EXCEPTION_EXECUTE_HANDLER) {}
-}
-
 void __fastcall HookCraftEntry(void* __this) {
     if (g_config.enableCraft && g_FindStringAddr && g_CraftPartnerAddr) {
         DoCraftLogic();
         return;
     }
     if (g_oCraftEntry) g_oCraftEntry(__this);
+}
+
+void InitCraft() {
+    using namespace PatternScanner;
+
+    for (int i = 0; Signatures::CraftPartner[i] && !g_CraftPartnerAddr; i++) {
+        uintptr_t a = Scan(Signatures::CraftPartner[i]);
+        if (a) g_CraftPartnerAddr = a;
+    }
+
+    uintptr_t addr = ScanNullTerminated(Signatures::CraftEntry);
+    if (addr && g_FindStringAddr && g_CraftPartnerAddr) {
+        MH_CreateHook((void*)addr, HookCraftEntry, (void**)&g_oCraftEntry);
+    }
 }

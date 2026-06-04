@@ -7,8 +7,8 @@ __int64 __fastcall HookGameUpdate(__int64 a1, const char* a2) {
 
     static DWORD lastConfigTime = 0;
     DWORD now = GetTickCount();
-    if (now - lastConfigTime > 100) {
-        LoadConfig();
+    if (now - lastConfigTime > 2000) {
+        ReloadConfigIfChanged();
         lastConfigTime = now;
     }
 
@@ -73,6 +73,13 @@ __int64 __fastcall HookGameUpdate(__int64 a1, const char* a2) {
     if (g_triggerForge.exchange(false)) {
         DoForgeLogic();
     }
+
+    static bool lastNoGrassState = false;
+    if (g_config.enableNoGrass != lastNoGrassState) {
+        if (g_oSetEnabled) g_oSetEnabled(!g_config.enableNoGrass);
+        lastNoGrassState = g_config.enableNoGrass;
+    }
+
 
     TryHideGameUID();
     TryHideMenuUID();

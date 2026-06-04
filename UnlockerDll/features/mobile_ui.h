@@ -60,3 +60,15 @@ static bool DoApplyMobileUI() {
         return false;
     }
 }
+
+void InitMobileUI() {
+    using namespace PatternScanner;
+
+    for (int i = 0; Signatures::MobileUI[i] && !g_ChangeMobileUIAddr; i++) {
+        uintptr_t a = Scan(Signatures::MobileUI[i]);
+        if (a) {
+            uintptr_t resolved = ResolveCall(a);
+            if (resolved) g_ChangeMobileUIAddr = resolved;
+        }
+    }
+}

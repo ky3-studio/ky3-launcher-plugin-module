@@ -223,3 +223,63 @@ static bool InitCookingPatchSites(uintptr_t h) {
     g_CookPatchReady = true;
     return true;
 }
+
+void InitCooking() {
+    using namespace PatternScanner;
+
+    if (!g_InnerDispatcherAddr) {
+        for (int i = 0; Signatures::InnerDispatcher[i] && !g_InnerDispatcherAddr; i++) {
+            uintptr_t a = Scan(Signatures::InnerDispatcher[i]);
+            if (a) g_InnerDispatcherAddr = a;
+        }
+    }
+
+    if (!g_InnerDispatcherAddr) return;
+
+    uintptr_t idBase = g_InnerDispatcherAddr;
+    uintptr_t hashAddr = 0;
+
+    for (uintptr_t scan = idBase; scan < idBase + 0x20000 - 4; scan++) {
+        __try {
+            if (memcmp((void*)scan, Signatures::CookingHash, 4) != 0) continue;
+
+            uintptr_t cmpStart = 0;
+            uintptr_t afterCmp = 0;
+            if (*(BYTE*)(scan - 2) == 0x81 && *(BYTE*)(scan - 1) == 0xF9) {
+                cmpStart = scan - 2;
+                afterCmp = scan + 4;
+            } else if (*(BYTE*)(scan - 1) == 0x3D) {
+                cmpStart = scan - 1;
+                afterCmp = scan + 4;
+            } else continue;
+
+            BYTE b0 = *(BYTE*)afterCmp;
+            BYTE b1 = *(BYTE*)(afterCmp + 1);
+            bool isCondJmp = (b0 == 0x74) || (b0 == 0x75)
+                          || (b0 == 0x0F && (b1 == 0x84 || b1 == 0x85));
+            if (isCondJmp) {
+                hashAddr = cmpStart;
+                break;
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) { break; }
+    }
+
+    if (hashAddr) {
+        for (uintptr_t scan = hashAddr; scan < hashAddr + 0x200; scan++) {
+            __try {
+                if (*(BYTE*)scan == 0x41 && *(BYTE*)(scan + 1) == 0x5F && *(BYTE*)(scan + 2) == 0xE9) {
+                    int32_t rel = *(int32_t*)(scan + 3);
+                    g_CookingHandlerAddr = (scan + 2) + 5 + rel;
+                    break;
+                }
+            } __except(EXCEPTION_EXECUTE_HANDLER) { break; }
+        }
+    }
+
+    if (g_CookingHandlerAddr) {
+        InitCookingPatchSites(g_CookingHandlerAddr);
+        if (g_CookingShowPageAddr) {
+            MH_CreateHook((LPVOID)g_CookingShowPageAddr, HookCookingShowPage, (LPVOID*)&g_oCookingShowPage);
+        }
+    }
+}

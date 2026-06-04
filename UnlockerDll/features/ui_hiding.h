@@ -131,3 +131,32 @@ void HookQuestBanner(__int64 a1) {
     if (g_config.hideQuestBanner) return;
     if (g_oQuestBanner) g_oQuestBanner(a1);
 }
+
+void InitUIHiding() {
+    using namespace PatternScanner;
+    uintptr_t addr;
+
+    addr = ScanNullTerminated(Signatures::QuestBanner);
+    if (addr) MH_CreateHook((void*)addr, HookQuestBanner, (void**)&g_oQuestBanner);
+
+    for (int i = 0; Signatures::FindGameObject[i] && !g_FindGameObjectAddr; i++) {
+        uintptr_t a = Scan(Signatures::FindGameObject[i]);
+        if (a) {
+            if (i == 1) a = ResolveCall(a);
+            if (a) g_FindGameObjectAddr = a;
+        }
+    }
+
+    for (int i = 0; Signatures::SetActive[i] && !g_SetActiveAddr; i++) {
+        uintptr_t a = Scan(Signatures::SetActive[i]);
+        if (a) {
+            if (i == 0) a = ResolveCall(a);
+            if (a) g_SetActiveAddr = a;
+        }
+    }
+
+    for (int i = 0; Signatures::FindString[i] && !g_FindStringAddr; i++) {
+        uintptr_t a = Scan(Signatures::FindString[i]);
+        if (a) g_FindStringAddr = a;
+    }
+}

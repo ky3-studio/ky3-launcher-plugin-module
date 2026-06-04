@@ -1,10 +1,65 @@
 #pragma once
 
+static FILETIME g_lastConfigWriteTime = {};
+static DWORD g_lastConfigSaveTickCount = 0;
+
 std::wstring GetConfigPath() {
     wchar_t path[MAX_PATH];
     GetModuleFileNameW(g_hModule, path, MAX_PATH);
     std::wstring p = path;
     return p.substr(0, p.find_last_of(L"\\/")) + L"\\dll_config.ini";
+}
+
+static void WriteIniInt(const char* key, int value, const char* path) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%d", value);
+    WritePrivateProfileStringA("Settings", key, buf, path);
+}
+
+void SaveConfig() {
+    std::wstring wpath = GetConfigPath();
+    char pathA[MAX_PATH];
+    WideCharToMultiByte(CP_ACP, 0, wpath.c_str(), -1, pathA, MAX_PATH, nullptr, nullptr);
+
+    WriteIniInt("targetFov", (int)g_config.targetFov, pathA);
+    WriteIniInt("disableVSync", g_config.disableVSync ? 1 : 0, pathA);
+    WriteIniInt("enableFov", g_config.enableFov ? 1 : 0, pathA);
+    WriteIniInt("disableFog", g_config.disableFog ? 1 : 0, pathA);
+    WriteIniInt("disableCharFade", g_config.disableCharFade ? 1 : 0, pathA);
+    WriteIniInt("hideUID", g_config.hideUID ? 1 : 0, pathA);
+    WriteIniInt("hideMenuUID", g_config.hideMenuUID ? 1 : 0, pathA);
+    WriteIniInt("hideQuestBanner", g_config.hideQuestBanner ? 1 : 0, pathA);
+    WriteIniInt("disableDamageText", g_config.disableDamageText ? 1 : 0, pathA);
+    WriteIniInt("disableCameraAnim", g_config.disableCameraAnim ? 1 : 0, pathA);
+    WriteIniInt("touchScreen", g_config.touchScreen ? 1 : 0, pathA);
+    WriteIniInt("enablePortableCraft", g_config.enableCraft ? 1 : 0, pathA);
+    WriteIniInt("redirectCraft", g_config.redirectCraft ? 1 : 0, pathA);
+    WriteIniInt("craftKey", g_config.craftKey, pathA);
+    WriteIniInt("craftModifier", g_config.craftModifier, pathA);
+    WriteIniInt("removeTeamAnim", g_config.removeTeamAnim ? 1 : 0, pathA);
+    WriteIniInt("enableFps", g_config.enableFps ? 1 : 0, pathA);
+    WriteIniInt("targetFps", g_config.targetFps, pathA);
+    WriteIniInt("enableDispatch", g_config.enableDispatch ? 1 : 0, pathA);
+    WriteIniInt("redirectDispatch", g_config.redirectDispatch ? 1 : 0, pathA);
+    WriteIniInt("dispatchKey", g_config.dispatchKey, pathA);
+    WriteIniInt("dispatchModifier", g_config.dispatchModifier, pathA);
+    WriteIniInt("enableCooking", g_config.enableCooking ? 1 : 0, pathA);
+    WriteIniInt("cookingKey", g_config.cookingKey, pathA);
+    WriteIniInt("cookingModifier", g_config.cookingModifier, pathA);
+    WriteIniInt("enableForge", g_config.enableForge ? 1 : 0, pathA);
+    WriteIniInt("forgeKey", g_config.forgeKey, pathA);
+    WriteIniInt("forgeModifier", g_config.forgeModifier, pathA);
+    WriteIniInt("enableNoGrass", g_config.enableNoGrass ? 1 : 0, pathA);
+    WriteIniInt("enableGui", g_config.enableGui ? 1 : 0, pathA);
+    WriteIniInt("guiKey", g_config.guiKey, pathA);
+    WriteIniInt("guiModifier", g_config.guiModifier, pathA);
+
+    g_lastConfigSaveTickCount = GetTickCount();
+    HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        GetFileTime(hFile, nullptr, nullptr, &g_lastConfigWriteTime);
+        CloseHandle(hFile);
+    }
 }
 
 void LoadConfig() {
@@ -48,176 +103,32 @@ void LoadConfig() {
     g_config.enableForge = GetPrivateProfileIntA("Settings", "enableForge", 0, pathA) != 0;
     g_config.forgeKey = GetPrivateProfileIntA("Settings", "forgeKey", 0x78, pathA);
     g_config.forgeModifier = GetPrivateProfileIntA("Settings", "forgeModifier", 0, pathA);
+    g_config.enableNoGrass = GetPrivateProfileIntA("Settings", "enableNoGrass", 0, pathA) != 0;
+    g_config.enableGui = GetPrivateProfileIntA("Settings", "enableGui", 1, pathA) != 0;
+    g_config.guiKey = GetPrivateProfileIntA("Settings", "guiKey", 0xA1, pathA);
+    g_config.guiModifier = GetPrivateProfileIntA("Settings", "guiModifier", 0, pathA);
+
+    HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        GetFileTime(hFile, nullptr, nullptr, &g_lastConfigWriteTime);
+        CloseHandle(hFile);
+    }
 }
 
-static HHOOK g_mouseHook = nullptr;
+void ReloadConfigIfChanged() {
+    std::wstring wpath = GetConfigPath();
+    HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return;
 
-LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0) {
-        MSLLHOOKSTRUCT* pMouse = (MSLLHOOKSTRUCT*)lParam;
-        if (wParam == WM_XBUTTONDOWN) {
-            WORD xbutton = HIWORD(pMouse->mouseData);
-            if (xbutton == XBUTTON1) g_xbutton1Pressed.store(true);
-            if (xbutton == XBUTTON2) g_xbutton2Pressed.store(true);
-        } else if (wParam == WM_XBUTTONUP) {
-            WORD xbutton = HIWORD(pMouse->mouseData);
-            if (xbutton == XBUTTON1) g_xbutton1Pressed.store(false);
-            if (xbutton == XBUTTON2) g_xbutton2Pressed.store(false);
+    FILETIME ft;
+    GetFileTime(hFile, nullptr, nullptr, &ft);
+    CloseHandle(hFile);
+
+    if (CompareFileTime(&ft, &g_lastConfigWriteTime) > 0) {
+        DWORD elapsed = GetTickCount() - g_lastConfigSaveTickCount;
+        if (elapsed > 1000) {
+            g_lastConfigWriteTime = ft;
+            LoadConfig();
         }
     }
-    return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
-}
-
-DWORD WINAPI FpsThread(LPVOID) {
-    DWORD lastCraftKeyTime = 0;
-
-    while (g_running) {
-        DWORD now = GetTickCount();
-
-        bool needMouseHook = (g_config.redirectCraft && (g_config.craftKey == 5 || g_config.craftKey == 6))
-                           || (g_config.redirectDispatch && (g_config.dispatchKey == 5 || g_config.dispatchKey == 6))
-                           || (g_config.enableCooking && (g_config.cookingKey == 5 || g_config.cookingKey == 6))
-                           || (g_config.enableForge && (g_config.forgeKey == 5 || g_config.forgeKey == 6));
-        if (needMouseHook && !g_mouseHook) {
-            g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, g_hModule, 0);
-        } else if (!needMouseHook && g_mouseHook) {
-            UnhookWindowsHookEx(g_mouseHook);
-            g_mouseHook = nullptr;
-            g_xbutton1Pressed.store(false);
-            g_xbutton2Pressed.store(false);
-        }
-
-        if (g_config.redirectCraft && g_config.craftKey != 0) {
-            bool keyPressed = false;
-            if (g_config.craftKey == 5) keyPressed = g_xbutton1Pressed.load();
-            else if (g_config.craftKey == 6) keyPressed = g_xbutton2Pressed.load();
-            else keyPressed = (GetAsyncKeyState(g_config.craftKey) & 0x8000) != 0;
-
-            if (keyPressed) {
-                bool modifierOk = true;
-                switch (g_config.craftModifier) {
-                    case 1: modifierOk = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0; break;
-                    case 2: modifierOk = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0; break;
-                    case 3: modifierOk = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0; break;
-                    default: break;
-                }
-                if (modifierOk && now - lastCraftKeyTime > 300) {
-                    g_triggerCraft.store(true);
-                    lastCraftKeyTime = now;
-                }
-            }
-        }
-
-        if (g_config.redirectDispatch && g_config.dispatchKey != 0) {
-            bool keyPressed = false;
-            if (g_config.dispatchKey == 5) keyPressed = g_xbutton1Pressed.load();
-            else if (g_config.dispatchKey == 6) keyPressed = g_xbutton2Pressed.load();
-            else keyPressed = (GetAsyncKeyState(g_config.dispatchKey) & 0x8000) != 0;
-
-            if (keyPressed) {
-                bool modifierOk = true;
-                switch (g_config.dispatchModifier) {
-                    case 1: modifierOk = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0; break;
-                    case 2: modifierOk = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0; break;
-                    case 3: modifierOk = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0; break;
-                    default: break;
-                }
-                if (modifierOk && now - g_lastDispatchTime > 300) {
-                    g_triggerDispatch.store(true);
-                    g_lastDispatchTime = now;
-                }
-            }
-        }
-
-        if (g_config.enableCooking && g_config.cookingKey != 0) {
-            bool keyPressed = false;
-            if (g_config.cookingKey == 5) keyPressed = g_xbutton1Pressed.load();
-            else if (g_config.cookingKey == 6) keyPressed = g_xbutton2Pressed.load();
-            else keyPressed = (GetAsyncKeyState(g_config.cookingKey) & 0x8000) != 0;
-
-            if (keyPressed) {
-                bool modifierOk = true;
-                switch (g_config.cookingModifier) {
-                    case 1: modifierOk = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0; break;
-                    case 2: modifierOk = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0; break;
-                    case 3: modifierOk = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0; break;
-                    default: break;
-                }
-                if (modifierOk && now - g_lastCookingTime > 300) {
-                    g_triggerCooking.store(true);
-                    g_lastCookingTime = now;
-                }
-            }
-        }
-
-        if (g_config.enableForge && g_config.forgeKey != 0) {
-            bool keyPressed = false;
-            if (g_config.forgeKey == 5) keyPressed = g_xbutton1Pressed.load();
-            else if (g_config.forgeKey == 6) keyPressed = g_xbutton2Pressed.load();
-            else keyPressed = (GetAsyncKeyState(g_config.forgeKey) & 0x8000) != 0;
-
-            if (keyPressed) {
-                bool modifierOk = true;
-                switch (g_config.forgeModifier) {
-                    case 1: modifierOk = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0; break;
-                    case 2: modifierOk = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0; break;
-                    case 3: modifierOk = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0; break;
-                    default: break;
-                }
-                if (modifierOk && now - g_lastForgeTime > 300) {
-                    g_triggerForge.store(true);
-                    g_lastForgeTime = now;
-                }
-            }
-        }
-
-        Sleep(16);
-    }
-    if (g_mouseHook) { UnhookWindowsHookEx(g_mouseHook); g_mouseHook = nullptr; }
-    return 0;
-}
-
-DWORD WINAPI MainThread(LPVOID lpParameter) {
-    while (!g_GameWindow && g_running) {
-        g_GameWindow = FindWindowA("UnityWndClass", nullptr);
-        Sleep(100);
-    }
-    if (!g_running) return 0;
-    Sleep(3000);
-
-    MH_Initialize();
-    LoadConfig();
-    InitGameHooks();
-
-    CreateThread(nullptr, 0, FpsThread, nullptr, 0, nullptr);
-
-    while (g_running) {
-        if (!IsWindow(g_GameWindow)) {
-            g_running = false;
-            Sleep(500);
-            TerminateProcess(GetCurrentProcess(), 0);
-            break;
-        }
-        Sleep(1000);
-    }
-
-    return 0;
-}
-
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-    switch (ul_reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        DisableThreadLibraryCalls(hModule);
-        g_hModule = hModule;
-        CreateThread(nullptr, 0, MainThread, hModule, 0, nullptr);
-        break;
-    case DLL_PROCESS_DETACH:
-        g_running = false;
-        Sleep(200);
-        if (g_mouseHook) { UnhookWindowsHookEx(g_mouseHook); g_mouseHook = nullptr; }
-        MH_DisableHook(MH_ALL_HOOKS);
-        MH_Uninitialize();
-        break;
-    }
-    return TRUE;
 }

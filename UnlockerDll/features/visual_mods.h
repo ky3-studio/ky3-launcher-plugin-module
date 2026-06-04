@@ -46,11 +46,27 @@ bool __fastcall HookEventCamera(void* a, void* b) {
     return true;
 }
 
-typedef __int64(__fastcall *BurstAnimDispatcher_t)(__int64, void*);
-BurstAnimDispatcher_t g_oBurstAnimDispatcher = nullptr;
-volatile uint8_t* g_pBurstSkipFlag = nullptr;
-__int64 __fastcall HookBurstAnimDispatcher(__int64 a1, void* a2) {
-    if (g_config.disableCameraAnim) return 0;
-    if (g_oBurstAnimDispatcher) return g_oBurstAnimDispatcher(a1, a2);
-    return 0;
+void InitVisual() {
+    using namespace PatternScanner;
+    uintptr_t addr;
+
+    addr = ScanNullTerminated(Signatures::FOV);
+    if (addr && IsValidFunctionPrologue(addr)) {
+        MH_CreateHook((void*)addr, HookChangeFOV, (void**)&g_oChangeFOV);
+    }
+
+    addr = ScanNullTerminated(Signatures::Fog);
+    if (addr) MH_CreateHook((void*)addr, HookDisplayFog, (void**)&g_oDisplayFog);
+
+    addr = ScanNullTerminated(Signatures::Perspective);
+    if (addr) {
+        uintptr_t funcAddr = ResolveCall(addr);
+        if (funcAddr) MH_CreateHook((void*)funcAddr, HookPlayer_Perspective, (void**)&g_oPlayer_Perspective);
+    }
+
+    addr = ScanNullTerminated(Signatures::DamageText);
+    if (addr) MH_CreateHook((void*)addr, HookShowDamage, (void**)&g_oShowDamage);
+
+    addr = ScanNullTerminated(Signatures::EventCamera);
+    if (addr) MH_CreateHook((void*)addr, HookEventCamera, (void**)&g_oEventCamera);
 }
